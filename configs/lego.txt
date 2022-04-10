@@ -1,10 +1,10 @@
 
 dataset_name = blender
 datadir = ./data/nerf_synthetic/lego
-expname =  tensorf_lego_VM
+expname =  tensorf_lego_VM_random_2_10000it_NBV
 basedir = ./log
 
-n_iters = 30000
+n_iters = 10000
 batch_size = 4096
 
 N_voxel_init = 2097156 # 128**3
@@ -13,9 +13,10 @@ upsamp_list = [2000,3000,4000,5500,7000]
 update_AlphaMask_list = [2000,4000]
 
 N_vis = 5
-vis_every = 10000
+vis_every = 5000
 
-render_test = 1
+#render_test = 1
+#render_path = 1
 
 n_lamb_sigma = [16,16,16]
 n_lamb_sh = [48,48,48]

@@ -9,6 +9,34 @@ from torchvision import transforms as T
 
 from .ray_utils import *
 
+trans_t = lambda t : torch.Tensor([
+    [1,0,0,0],
+    [0,1,0,0],
+    [0,0,1,t],
+    [0,0,0,1]]).float()
+
+rot_phi = lambda phi : torch.Tensor([
+    [1,0,0,0],
+    [0,np.cos(phi),-np.sin(phi),0],
+    [0,np.sin(phi), np.cos(phi),0],
+    [0,0,0,1]]).float()
+
+rot_theta = lambda th : torch.Tensor([
+    [np.cos(th),0,-np.sin(th),0],
+    [0,1,0,0],
+    [np.sin(th),0, np.cos(th),0],
+    [0,0,0,1]]).float()
+
+
+def pose_spherical(theta, phi, radius):
+    c2w = trans_t(radius)
+    c2w = rot_phi(phi/180.*np.pi) @ c2w
+    c2w = rot_theta(theta/180.*np.pi) @ c2w
+    c2w = torch.Tensor(np.array([[-1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]])) @ c2w
+    ## yue ajust for TensoRF opencv coordinate
+    c2w = c2w @ torch.Tensor(np.array([[1,0,0,0],[0,-1,0,0],[0,0,-1,0],[0,0,0,1]]))
+    return c2w
+
 
 class BlenderDataset(Dataset):
     def __init__(self, datadir, split='train', downsample=1.0, is_stack=False, N_vis=-1):
@@ -59,6 +87,10 @@ class BlenderDataset(Dataset):
         self.all_depth = []
         self.downsample=1.0
 
+        ## yue 0404 add render path for inference camera set
+        self.render_path = torch.stack([pose_spherical(angle, phi, 4.0) for phi in np.linspace(-70, -7, 9+1)[:-1] \
+                for angle in np.linspace(-180,180,40+1)[:-1]], 0)
+        ## 
         img_eval_interval = 1 if self.N_vis < 0 else len(self.meta['frames']) // self.N_vis
         idxs = list(range(0, len(self.meta['frames']), img_eval_interval))
         for i in tqdm(idxs, desc=f'Loading data {self.split} ({len(idxs)})'):#img_list:#

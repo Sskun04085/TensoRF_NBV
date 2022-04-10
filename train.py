@@ -13,6 +13,9 @@ import datetime
 
 from dataLoader import dataset_dict
 import sys
+import subprocess
+import time
+import shutil
 
 
 
@@ -73,18 +76,83 @@ def render_test(args):
         train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=True)
         PSNRs_test = evaluation(train_dataset,tensorf, args, renderer, f'{logfolder}/imgs_train_all/',
                                 N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
+        ## yue 0404 add camera pose
         print(f'======> {args.expname} train all psnr: {np.mean(PSNRs_test)} <========================')
 
     if args.render_test:
-        os.makedirs(f'{logfolder}/{args.expname}/imgs_test_all', exist_ok=True)
-        evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/{args.expname}/imgs_test_all/',
+        print("render_test=================================")
+        os.makedirs(f'{logfolder}/imgs_test_all', exist_ok=True)
+        evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/imgs_test_all/',
                                 N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
+        ## yue 0404 add camera pose
 
     if args.render_path:
+        print("render_path=================================")
         c2ws = test_dataset.render_path
-        os.makedirs(f'{logfolder}/{args.expname}/imgs_path_all', exist_ok=True)
-        evaluation_path(test_dataset,tensorf, c2ws, renderer, f'{logfolder}/{args.expname}/imgs_path_all/',
+        os.makedirs(f'{logfolder}/imgs_path_all', exist_ok=True)
+        evaluation_path(test_dataset,tensorf, c2ws, renderer, f'{logfolder}/imgs_path_all/',
                                 N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
+        ## yue 0404 add camera pose
+        if args.dataset_name == 'blender':
+            for idx, c2w in enumerate(c2ws):
+                c2ws[idx] = c2w @ torch.Tensor(np.array([[1,0,0,0],[0,-1,0,0],[0,0,-1,0],[0,0,0,1]]))
+            render_poses_cpu = c2ws.cpu().numpy()
+            np.save(os.path.join(f'{logfolder}/imgs_path_all', 'Camera_poses.npy'), render_poses_cpu)
+        else: ## IDK dataset
+            render_poses_cpu = c2ws.cpu().numpy()
+            np.save(os.path.join(f'{logfolder}/imgs_path_all', 'Camera_poses.npy'), render_poses_cpu)
+
+## 0404 yue
+@torch.no_grad()
+def NextBView(args):
+    if args.add_timestamp:
+        logfolder = f'{args.basedir}/{args.expname}{datetime.datetime.now().strftime("-%Y%m%d-%H%M%S")}'
+    else:
+        logfolder = f'{args.basedir}/{args.expname}'
+    
+    File_path = f'{logfolder}/imgs_path_all'
+    ### NRIQA part
+    time0 = time.time()
+    if not os.path.exists(f'{File_path}/IQA_output.txt'):
+        subprocess.run(f"./NRIQA_script.sh {File_path}", shell=True)
+        shutil.copy2(f'{File_path}/output.txt', f'{File_path}/IQA_output.txt')
+        os.remove(f'{File_path}/output.txt')
+    dt = time.time() - time0
+    H, M, S = GetdeltaTime(dt)
+    print(f"End NRIQA, with time: {H:d}:{M:02d}:{S:02d}")
+
+    ### Depth Uncertainty Part
+    time0 = time.time()
+    if not os.path.exists(f'{File_path}/Depth_Errors.txt'):
+        Imgs = [os.path.join(File_path, "rgbd", f) for f in sorted(os.listdir(os.path.join(File_path, "rgbd"))) \
+        if f.endswith('npz')]
+        Size = np.load(Imgs[0])['depth'].shape
+        Total_pixels = Size[0]*Size[1]
+
+        depth_err_col = []
+        for Img_nam in Imgs:
+            depth = np.load(Img_nam)['depth']
+            Error = np.abs(depth - 2.0) # diff near
+            N_Error = (Error < 0.2).sum() / Total_pixels  # normalize [0-1]
+            depth_err_col.append(N_Error)
+        depth_err_col = np.array(depth_err_col)
+        print(depth_err_col.max())
+        np.savetxt(os.path.join(File_path, 'Depth_Errors.txt'), depth_err_col, fmt='%.10f')
+    dt = time.time() - time0
+    H, M, S = GetdeltaTime(dt)
+    print(f"End Depth Uncertainty, with time: {H:d}:{M:02d}:{S:02d}")
+
+
+    ## Calculate Uncertainty (\alpha * NRIQA + \beta * Depth_Outliers)
+    NRIQA = np.loadtxt(os.path.join(File_path, 'IQA_output.txt'))
+    NRIQA /= 100 # normalize [1-100]
+
+    DO = np.loadtxt(os.path.join(File_path, 'Depth_Errors.txt'))
+    alpha = 0.01
+    beta = 0.99
+    test = (NRIQA*alpha+DO*beta)
+    Bad_idx = np.where(test == test.max())[0][0]
+    return Bad_idx
 
 def reconstruction(args):
 
@@ -281,6 +349,7 @@ def reconstruction(args):
         train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=True)
         PSNRs_test = evaluation(train_dataset,tensorf, args, renderer, f'{logfolder}/imgs_train_all/',
                                 N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
+        ## yue 0404 add camera pose
         print(f'======> {args.expname} test all psnr: {np.mean(PSNRs_test)} <========================')
 
     if args.render_test:
@@ -288,6 +357,7 @@ def reconstruction(args):
         PSNRs_test = evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/imgs_test_all/',
                                 N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
         summary_writer.add_scalar('test/psnr_all', np.mean(PSNRs_test), global_step=iteration)
+        ## yue 0404 add camera pose
         print(f'======> {args.expname} test all psnr: {np.mean(PSNRs_test)} <========================')
 
     if args.render_path:
@@ -297,6 +367,15 @@ def reconstruction(args):
         os.makedirs(f'{logfolder}/imgs_path_all', exist_ok=True)
         evaluation_path(test_dataset,tensorf, c2ws, renderer, f'{logfolder}/imgs_path_all/',
                                 N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
+        ## yue 0404 add camera pose
+        if args.dataset_name == 'blender':
+            for idx, c2w in enumerate(c2ws):
+                c2ws[idx] = c2w @ torch.Tensor(np.array([[1,0,0,0],[0,-1,0,0],[0,0,-1,0],[0,0,0,1]]))
+            render_poses_cpu = c2ws.cpu().numpy()
+            np.save(os.path.join(f'{logfolder}/imgs_path_all', 'Camera_poses.npy'), render_poses_cpu)
+        else: ## IDK dataset
+            render_poses_cpu = c2ws.cpu().numpy()
+            np.save(os.path.join(f'{logfolder}/imgs_path_all', 'Camera_poses.npy'), render_poses_cpu)
 
 
 if __name__ == '__main__':
@@ -306,13 +385,18 @@ if __name__ == '__main__':
     np.random.seed(20211202)
 
     args = config_parser()
-    print(args)
+    # print(args)
 
     if  args.export_mesh:
         export_mesh(args)
-
-    if args.render_only and (args.render_test or args.render_path):
-        render_test(args)
-    else:
-        reconstruction(args)
+    if not args.only_NBV:
+        if args.render_only and (args.render_test or args.render_path):
+            render_test(args)
+        else:
+            reconstruction(args)
+    
+    ## 0404 yue control NBV -> Image Uncertainty + Depth Uncertainty
+    if args.NBV_route:
+        suggest = NextBView(args)
+        print(f"Suggest NBV # is {suggest}")
 

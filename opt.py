@@ -22,6 +22,10 @@ def config_parser(cmd=None):
     parser.add_argument('--model_name', type=str, default='TensorVMSplit',
                         choices=['TensorVMSplit', 'TensorCP'])
 
+    ## 0404 yue NBV route
+    parser.add_argument("--NBV_route", type=int, default=0)
+    parser.add_argument("--only_NBV", type=int, default=0)
+
     # loader options
     parser.add_argument("--batch_size", type=int, default=4096)
     parser.add_argument("--n_iters", type=int, default=30000)

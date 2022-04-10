@@ -7,6 +7,11 @@ import scipy.signal
 
 mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]))
 
+#yue 0404 show time h m s
+def GetdeltaTime(dt):
+    hours, remainder = divmod(dt, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return int(hours), int(minutes), int(seconds)
 
 def visualize_depth_numpy(depth, minmax=None, cmap=cv2.COLORMAP_JET):
     """
