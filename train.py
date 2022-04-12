@@ -115,8 +115,8 @@ def NextBView(args):
     time0 = time.time()
     if not os.path.exists(f'{File_path}/IQA_output.txt'):
         subprocess.run(f"./NRIQA_script.sh {File_path}", shell=True)
-        shutil.copy2(f'{File_path}/output.txt', f'{File_path}/IQA_output.txt')
-        os.remove(f'{File_path}/output.txt')
+        # shutil.copy2(f'{File_path}/output.txt', f'{File_path}/IQA_output.txt')
+        # os.remove(f'{File_path}/output.txt')
     dt = time.time() - time0
     H, M, S = GetdeltaTime(dt)
     print(f"End NRIQA, with time: {H:d}:{M:02d}:{S:02d}")
