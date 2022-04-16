@@ -1,8 +1,9 @@
 
 dataset_name = blender
 datadir = ./data/nerf_synthetic/lego
-expname =  tensorf_lego_VM_Random_NBV_3
+expname =  tensorf_lego_VM_NBV_4
 basedir = ./log
+NBV_routename = NBV_suggest
 
 n_iters = 10000
 batch_size = 4096

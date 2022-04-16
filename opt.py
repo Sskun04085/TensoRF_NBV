@@ -25,6 +25,13 @@ def config_parser(cmd=None):
     ## 0404 yue NBV route
     parser.add_argument("--NBV_route", type=int, default=0)
     parser.add_argument("--only_NBV", type=int, default=0)
+    parser.add_argument('--add_view', type=int, default=0,
+                        help='add correspond view number in data dir')
+    parser.add_argument('--delete_all', type=int, default=0,
+                        help='delete all view now exp data dir')
+    parser.add_argument("--NBV_routename", type=str,
+                        help='where to store an NBV exp')
+    parser.add_argument("--only_PSNR", type=int, default=0)
 
     # loader options
     parser.add_argument("--batch_size", type=int, default=4096)

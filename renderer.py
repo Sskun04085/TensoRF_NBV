@@ -22,7 +22,7 @@ def OctreeRender_trilinear_fast(rays, tensorf, chunk=4096, N_samples=-1, ndc_ray
 
 @torch.no_grad()
 def evaluation(test_dataset,tensorf, args, renderer, savePath=None, N_vis=5, prtx='', N_samples=-1,
-               white_bg=False, ndc_ray=False, compute_extra_metrics=True, device='cuda'):
+               white_bg=False, ndc_ray=False, compute_extra_metrics=False, only_PSNR=0, device='cuda'):
     PSNRs, rgb_maps, depth_maps = [], [], []
     ssims,l_alex,l_vgg=[],[],[]
     os.makedirs(savePath, exist_ok=True)
@@ -69,14 +69,14 @@ def evaluation(test_dataset,tensorf, args, renderer, savePath=None, N_vis=5, prt
         # rgb_map = np.concatenate((rgb_map, depth_map), axis=1)
         rgb_maps.append(rgb_map)
         depth_maps.append(depth_map)
-        if savePath is not None:
+        if savePath is not None and not only_PSNR:
             imageio.imwrite(f'{savePath}/{prtx}{idx:03d}.png', rgb_map)
             # rgb_map = np.concatenate((rgb_map, depth_map), axis=1)
-            imageio.imwrite(f'{savePath}/rgbd/{prtx}{idx:03d}.png', depth_map)
+            # imageio.imwrite(f'{savePath}/rgbd/{prtx}{idx:03d}.png', depth_map)
             np.savez(f'{savePath}/rgbd/{prtx}{idx:03d}.npz', depth=depth_map)
-
-    imageio.mimwrite(f'{savePath}/{prtx}video.mp4', np.stack(rgb_maps), fps=30, quality=10)
-    imageio.mimwrite(f'{savePath}/{prtx}depthvideo.mp4', np.stack(depth_maps), fps=30, quality=10)
+    if not only_PSNR:
+        imageio.mimwrite(f'{savePath}/{prtx}video.mp4', np.stack(rgb_maps), fps=30, quality=10)
+        imageio.mimwrite(f'{savePath}/{prtx}depthvideo.mp4', np.stack(depth_maps), fps=30, quality=10)
 
     if PSNRs:
         psnr = np.mean(np.asarray(PSNRs))
@@ -87,6 +87,7 @@ def evaluation(test_dataset,tensorf, args, renderer, savePath=None, N_vis=5, prt
             np.savetxt(f'{savePath}/{prtx}mean.txt', np.asarray([psnr, ssim, l_a, l_v]))
         else:
             np.savetxt(f'{savePath}/{prtx}mean.txt', np.asarray([psnr]))
+        np.savetxt(f'{savePath}/test_views_PSNR.txt', np.asarray(PSNRs))
 
 
     return PSNRs
