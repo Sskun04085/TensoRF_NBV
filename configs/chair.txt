@@ -1,7 +1,6 @@
-
 dataset_name = blender
-datadir = ./data/nerf_synthetic/lego
-expname =  lego_data
+datadir = ./data/nerf_synthetic/chair
+expname =  chair_data
 basedir = ./log
 NBV_routename = Render_datas
 #NBV_suggest

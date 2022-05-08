@@ -8,9 +8,10 @@ if __name__ == '__main__':
     args = config_parser()
 
     ## read json and add NBV
-    if args.add_view:
+    if args.add_view or args.add_shuffle_views:
         Data_dir = args.datadir
-        Source_file = "Render_Specify_views/transforms_train"
+        spdir = Data_dir.split("/")
+        Source_file = f"Render_Specify_views_{spdir[-1]}/transforms_train"
         Target_file = "transforms_train"
         File_path = f'{args.basedir}/{args.NBV_routename}'
         os.makedirs(f'{File_path}', exist_ok=True)
@@ -28,10 +29,23 @@ if __name__ == '__main__':
                 np.savetxt(file, [-1, -1], fmt='%d')
                 file.close()
         now_list = np.loadtxt(os.path.join(f'{File_path}', 'Now_Views.txt'))
-        target_list = [args.add_view]
+        
+        ## add_shuffle_views
+        if args.add_shuffle_views:
+            # np.random.seed(10)
+            layer_1 = np.random.choice(np.arange(0, 80), 1, replace=False)
+            layer_2 = np.random.choice(np.arange(80, 160), 2, replace=False)
+            layer_3 = np.random.choice(np.arange(160, 240), 3, replace=False)
+            layer_4 = np.random.choice(np.arange(240, 360), 4, replace=False)
+            all_layer = np.concatenate([layer_1, layer_2, layer_3, layer_4])
+            t_shuffle = np.random.permutation(all_layer)
+            target_list = t_shuffle[:args.add_shuffle_views]
+        else:
+            target_list = [args.add_view]
 
         ## append then together
         for i in target_list:
+            print(i)
             if i in now_list:
                 print(f'view {i} already in views set!!!')
                 continue
@@ -59,4 +73,4 @@ if __name__ == '__main__':
         target['frames'] = []
         with open(os.path.join(Data_dir, f'{Target_file}.json'), 'w') as targetfp:
             json.dump(target, targetfp, indent = 4)
-        print(f"remove training set at {Target_file}")
+        print(f"remove training set at {Data_dir}/{Target_file}")

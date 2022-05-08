@@ -25,6 +25,8 @@ def config_parser(cmd=None):
     ## 0404 yue NBV route
     parser.add_argument("--NBV_route", type=int, default=0)
     parser.add_argument("--only_NBV", type=int, default=0)
+    parser.add_argument('--add_shuffle_views', type=int, default=0,
+                        help='add correspond view number set and shuffle order in data dir/ number is total views')
     parser.add_argument('--add_view', type=int, default=0,
                         help='add correspond view number in data dir')
     parser.add_argument('--delete_all', type=int, default=0,
