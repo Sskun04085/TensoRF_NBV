@@ -7,4 +7,5 @@
 *.dae
 data/*
 log/*
+backup/*
 test.sh
