@@ -1,31 +1,32 @@
 #!/bin/bash
-# f=$1
+
 exp_name=$1
 d="1"
+# echo $f
 echo $exp_name
 
-# for generate train data
-# num=3600
+# for training data
 # for i in $(seq 1 10); 
 # do
+#     # implement your logic here
+#     # dir="./datasets/NeRF_datasets/NeRF_images/${exp_name}/${exp_name}_data_${i}/imgs_test_all"
 #     dir="./log/Render_datas/${exp_name}/${exp_name}_data_${i}/imgs_test_all"
-#     echo $dir
+#     # echo $dir
 
 #     mapfile files <<< "$(find "$dir" -maxdepth "$d" -type f -name '*.png' ! -type d -print0 | sort -zV | xargs -r0 )"
 #     Allfiles=($files) 
 
 #     for file in "${Allfiles[@]}"; do
 #         file="$(tr -d '\n' <<< "$file")"
-#         echo $file
-#         mv -T $file ./log/Render_datas/${exp_name}/${exp_name}_data_${i}/imgs_test_all/${num}.png
-#         ((num++))
-#         echo $num
+#         # echo $file
+#         cp $file ./datasets/NeRF_datasets/NeRF_images
 #     done
 # done
 
-## for formulate test data (cp?
-num=1080
-dir="./log/Render_datas/${exp_name}_data_4/imgs_test_all"
+##for testing data
+
+
+dir="./log/Render_datas/${exp_name}_data_full/imgs_test_all"
 echo $dir
 
 mapfile files <<< "$(find "$dir" -maxdepth "$d" -type f -name '*.png' ! -type d -print0 | sort -zV | xargs -r0 )"
@@ -33,8 +34,6 @@ Allfiles=($files)
 
 for file in "${Allfiles[@]}"; do
     file="$(tr -d '\n' <<< "$file")"
-    echo $file
-    mv -T $file ./log/Render_datas/${exp_name}_data_full/imgs_test_all/${num}.png
-    ((num++))
-    echo $num
+    # echo $file
+    cp $file ./datasets/NeRF_datasets/NeRF_test_ship_rabbit
 done

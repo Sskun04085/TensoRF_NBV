@@ -1,6 +1,6 @@
 dataset_name = blender
 datadir = ./data/nerf_synthetic/ficus
-expname =  ficus_data
+expname =  ficus_data_full
 basedir = ./log
 NBV_routename = Render_datas
 #NBV_suggest

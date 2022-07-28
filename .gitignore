@@ -8,4 +8,5 @@
 data/*
 log/*
 backup/*
+datasets/*
 test.sh

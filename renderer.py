@@ -21,12 +21,14 @@ def OctreeRender_trilinear_fast(rays, tensorf, chunk=4096, N_samples=-1, ndc_ray
     return torch.cat(rgbs), None, torch.cat(depth_maps), None, None
 
 @torch.no_grad()
-def evaluation(test_dataset,tensorf, args, renderer, savePath=None, N_vis=5, prtx='', N_samples=-1,
-               white_bg=False, ndc_ray=False, compute_extra_metrics=False, only_PSNR=0, device='cuda'):
+def evaluation(test_dataset,tensorf, args, renderer, savePath=None, resPath=None, N_vis=5, prtx='', N_samples=-1,
+               white_bg=False, ndc_ray=False, compute_extra_metrics=True, only_PSNR=0, device='cuda'):
     PSNRs, rgb_maps, depth_maps = [], [], []
     ssims,l_alex,l_vgg=[],[],[]
     os.makedirs(savePath, exist_ok=True)
     os.makedirs(savePath+"/rgbd", exist_ok=True)
+    if resPath is not None:
+        os.makedirs(resPath, exist_ok=True)
 
     try:
         tqdm._instances.clear()
@@ -56,10 +58,10 @@ def evaluation(test_dataset,tensorf, args, renderer, savePath=None, N_vis=5, prt
 
             if compute_extra_metrics:
                 ssim = rgb_ssim(rgb_map, gt_rgb, 1)
-                l_a = rgb_lpips(gt_rgb.numpy(), rgb_map.numpy(), 'alex', tensorf.device)
+                # l_a = rgb_lpips(gt_rgb.numpy(), rgb_map.numpy(), 'alex', tensorf.device)
                 l_v = rgb_lpips(gt_rgb.numpy(), rgb_map.numpy(), 'vgg', tensorf.device)
                 ssims.append(ssim)
-                l_alex.append(l_a)
+                # l_alex.append(l_a)
                 l_vgg.append(l_v)
 
         rgb_map = (rgb_map.numpy() * 255).astype('uint8')
@@ -74,31 +76,50 @@ def evaluation(test_dataset,tensorf, args, renderer, savePath=None, N_vis=5, prt
             # rgb_map = np.concatenate((rgb_map, depth_map), axis=1)
             # imageio.imwrite(f'{savePath}/rgbd/{prtx}{idx:03d}.png', depth_map)
             np.savez(f'{savePath}/rgbd/{prtx}{idx:03d}.npz', depth=depth_map)
+            
+    ## 0707 yue for only uniform camera, reorder maps only for better visulization(video output)
+    if N_vis < 0:
+        f_0 = np.arange(0, 360, 8)
+        for i in range(1, 8):
+            f = np.arange(i, 360, 8)
+            f_0 = np.concatenate((f_0, f))
+        vis_rgb_maps = [rgb_maps[i] for i in f_0]
+        vis_depth_maps = [depth_maps[i] for i in f_0]
+    else:
+        vis_rgb_maps = rgb_maps
+        vis_depth_maps = depth_maps
+        
     if not only_PSNR:
-        imageio.mimwrite(f'{savePath}/{prtx}video.mp4', np.stack(rgb_maps), fps=30, quality=10)
-        imageio.mimwrite(f'{savePath}/{prtx}depthvideo.mp4', np.stack(depth_maps), fps=30, quality=10)
+        imageio.mimwrite(f'{savePath}/{prtx}video.mp4', np.stack(vis_rgb_maps), fps=30, quality=10)
+        imageio.mimwrite(f'{savePath}/{prtx}depthvideo.mp4', np.stack(vis_depth_maps), fps=30, quality=10)
 
+    saveDirPath = resPath if resPath is not None else savePath
     if PSNRs:
         psnr = np.mean(np.asarray(PSNRs))
         if compute_extra_metrics:
             ssim = np.mean(np.asarray(ssims))
-            l_a = np.mean(np.asarray(l_alex))
+            # l_a = np.mean(np.asarray(l_alex))
             l_v = np.mean(np.asarray(l_vgg))
-            np.savetxt(f'{savePath}/{prtx}mean.txt', np.asarray([psnr, ssim, l_a, l_v]))
+            np.savetxt(f'{saveDirPath}/{prtx}mean.txt', np.asarray([psnr, ssim, l_v]))
         else:
-            np.savetxt(f'{savePath}/{prtx}mean.txt', np.asarray([psnr]))
-        np.savetxt(f'{savePath}/test_views_PSNR.txt', np.asarray(PSNRs))
+            np.savetxt(f'{saveDirPath}/{prtx}mean.txt', np.asarray([psnr]))
+            
+        np.savetxt(f'{saveDirPath}/test_views_PSNR.txt', np.asarray(PSNRs))
+        np.savetxt(f'{saveDirPath}/test_views_ssim.txt', np.asarray(ssims))
+        np.savetxt(f'{saveDirPath}/test_views_LPIPS_vgg.txt', np.asarray(l_vgg))
 
 
     return PSNRs
 
 @torch.no_grad()
-def evaluation_path(test_dataset,tensorf, c2ws, renderer, savePath=None, N_vis=5, prtx='', N_samples=-1,
+def evaluation_path(test_dataset,tensorf, c2ws, renderer, savePath=None, resPath=None, N_vis=5, prtx='', N_samples=-1,
                     white_bg=False, ndc_ray=False, compute_extra_metrics=True, device='cuda'):
     PSNRs, rgb_maps, depth_maps = [], [], []
     ssims,l_alex,l_vgg=[],[],[]
     os.makedirs(savePath, exist_ok=True)
     os.makedirs(savePath+"/rgbd", exist_ok=True)
+    if resPath is not None:
+        os.makedirs(resPath, exist_ok=True)
 
     try:
         tqdm._instances.clear()

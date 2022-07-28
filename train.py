@@ -1,5 +1,6 @@
 
 import os
+from cv2 import threshold
 from tqdm.auto import tqdm
 from opt import config_parser
 
@@ -16,13 +17,15 @@ import sys
 import subprocess
 import time
 import shutil
+import in_place
 
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 renderer = OctreeRender_trilinear_fast
-
+DEBUG = True
+thres=5.8
 
 class SimpleSampler:
     def __init__(self, total, batch):
@@ -82,7 +85,7 @@ def render_test(args):
     if args.render_test:
         print("render_test=================================")
         os.makedirs(f'{logfolder}/imgs_test_all', exist_ok=True)
-        evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/imgs_test_all/',
+        evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/imgs_test_all/', resPath=f'{logfolder}/{args.expname}_res/',
                 N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray, only_PSNR=args.only_PSNR, device=device)
         ## yue 0404 add camera pose
 
@@ -90,7 +93,7 @@ def render_test(args):
         print("render_path=================================")
         c2ws = test_dataset.render_path
         os.makedirs(f'{logfolder}/imgs_path_all', exist_ok=True)
-        evaluation_path(test_dataset,tensorf, c2ws, renderer, f'{logfolder}/imgs_path_all/',
+        evaluation_path(test_dataset,tensorf, c2ws, renderer, f'{logfolder}/imgs_path_all/', resPath=f'{logfolder}/{args.expname}_res/',
                                 N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
         ## yue 0404 add camera pose
         if args.dataset_name == 'blender':
@@ -114,10 +117,14 @@ def NextBView(args):
         File_path = f'{logfolder}/imgs_test_all'
     else:
         File_path = f'{logfolder}/imgs_path_all'
+
+    # 0714 direct make results in this folder to lesson some labor work
+    os.makedirs(f'{logfolder}/{args.expname}_res', exist_ok=True)
+    Exp_path = f'{logfolder}/{args.expname}_res'
     ### NRIQA part
     time0 = time.time()
-    if not os.path.exists(f'{File_path}/IQA_output.txt'):
-        subprocess.run(f"./NRIQA_script.sh {File_path}", shell=True)
+    if not os.path.exists(f'{Exp_path}/IQA_output.txt'):
+        subprocess.run(f"./NRIQA_script.sh {File_path} {Exp_path}", shell=True)
         # shutil.copy2(f'{File_path}/output.txt', f'{File_path}/IQA_output.txt')
         # os.remove(f'{File_path}/output.txt')
     dt = time.time() - time0
@@ -126,8 +133,8 @@ def NextBView(args):
 
     ### Depth Uncertainty Part
     time0 = time.time()
-    if not os.path.exists(f'{File_path}/Depth_Errors.txt'):
-        Imgs = [os.path.join(File_path, "rgbd", f) for f in sorted(os.listdir(os.path.join(File_path, "rgbd"))) \
+    if not os.path.exists(f'{Exp_path}/Depth_Errors.txt'):
+        Imgs = [os.path.join(File_path, "rgbd", f) for f in sorted_alphanumeric(os.listdir(os.path.join(File_path, "rgbd"))) \
         if f.endswith('npz')]
         Size = np.load(Imgs[0])['depth'].shape
         Total_pixels = Size[0]*Size[1]
@@ -136,26 +143,50 @@ def NextBView(args):
         for Img_nam in Imgs:
             depth = np.load(Img_nam)['depth']
             Error = np.abs(depth - 2.0) # diff near
-            N_Error = (Error < 0.2).sum() / Total_pixels  # normalize [0-1]
+            N_Error = (Error < 0.05).sum() / Total_pixels  # normalize [0-1]
             depth_err_col.append(N_Error)
         depth_err_col = np.array(depth_err_col)
         print(depth_err_col.max())
-        np.savetxt(os.path.join(File_path, 'Depth_Errors.txt'), depth_err_col, fmt='%.10f')
+        np.savetxt(os.path.join(Exp_path, 'Depth_Errors.txt'), depth_err_col, fmt='%.10f')
     dt = time.time() - time0
     H, M, S = GetdeltaTime(dt)
     print(f"End Depth Uncertainty, with time: {H:d}:{M:02d}:{S:02d}")
 
 
     ## Calculate Uncertainty (\alpha * NRIQA + \beta * Depth_Outliers)
-    NRIQA = np.loadtxt(os.path.join(File_path, 'IQA_output.txt'))
-    NRIQA /= 100 # normalize [1-100]
+    NRIQA = np.loadtxt(os.path.join(Exp_path, 'IQA_output.txt'))
+    Raw_NRIQA = NRIQA.copy()
+    Max_NRIQA = 10 ## NIMA
+    NRIQA = Max_NRIQA - NRIQA # reverse to map uncertainty (higher is worse)
+    NRIQA /= 9 # normalize [1-10] to [0-1]
 
-    DO = np.loadtxt(os.path.join(File_path, 'Depth_Errors.txt'))
-    alpha = 0.01
-    beta = 0.99
+    DO = np.loadtxt(os.path.join(Exp_path, 'Depth_Errors.txt'))
+    alpha = 1/90
+    beta = 89/90
+    ## 0713 load now list to mask out overestimate or selected
+    total_idx = np.arange(len(NRIQA))
+    route_path = os.path.abspath(os.path.join(logfolder, os.pardir))
+    now_list = np.loadtxt(os.path.join(route_path, 'Now_Views.txt'))
+    mask_out = np.setdiff1d(total_idx, now_list)
+    ## mask selected views
+    NRIQA = NRIQA[mask_out]
+    DO = DO[mask_out]
+
     test = (NRIQA*alpha+DO*beta)
+    
     Bad_idx = np.where(test == test.max())[0][0]
-    return Bad_idx
+    sg_view_num = mask_out[Bad_idx]
+    if DEBUG:
+        Bad_IQA_idx = np.where(NRIQA == NRIQA.max())[0][0]
+        Bad_DO_idx = np.where(DO == DO.max())[0][0]
+        sg_IQA_view = mask_out[Bad_IQA_idx]
+        sg_DO_view = mask_out[Bad_DO_idx]
+
+        Bad_IQA = Raw_NRIQA[sg_IQA_view] # Raw_NRIQA is not trimmed so use actually "idx" that look up from mask_out
+        Bad_DO = DO[Bad_DO_idx] # DO has been trimmed so use the idx "where" find
+        return sg_view_num, sg_IQA_view, sg_DO_view, Bad_IQA, Bad_DO
+    else:
+        return sg_view_num
 
 def reconstruction(args):
 
@@ -359,18 +390,19 @@ def reconstruction(args):
 
     if args.render_test:
         os.makedirs(f'{logfolder}/imgs_test_all', exist_ok=True)
-        PSNRs_test = evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/imgs_test_all/',
+        PSNRs_test = evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/imgs_test_all/', resPath=f'{logfolder}/{args.expname}_res/',
                     N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray, only_PSNR=args.only_PSNR, device=device)
         summary_writer.add_scalar('test/psnr_all', np.mean(PSNRs_test), global_step=iteration)
         ## yue 0404 add camera pose
         print(f'======> {args.expname} test all psnr: {np.mean(PSNRs_test)} <========================')
+        logger.info(f'======> {args.expname} test all psnr: {np.mean(PSNRs_test)} <========================')
 
     if args.render_path:
         c2ws = test_dataset.render_path
         # c2ws = test_dataset.poses
         print('========>',c2ws.shape)
         os.makedirs(f'{logfolder}/imgs_path_all', exist_ok=True)
-        evaluation_path(test_dataset,tensorf, c2ws, renderer, f'{logfolder}/imgs_path_all/',
+        evaluation_path(test_dataset,tensorf, c2ws, renderer, f'{logfolder}/imgs_path_all/', resPath=f'{logfolder}/{args.expname}_res/',
                                 N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
         ## yue 0404 add camera pose
         if args.dataset_name == 'blender':
@@ -391,6 +423,19 @@ if __name__ == '__main__':
 
     args = config_parser()
     # print(args)
+    File_path = f'{args.basedir}/{args.NBV_routename}'
+
+    ## logging setting
+    logger = logging.getLogger('NBV_logger')
+    logger.setLevel(logging.INFO)
+    handler = logging.FileHandler(os.path.join(f'{File_path}', f'Experiment.log'))
+    handler.addFilter(MyFilter(logging.INFO))
+    # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    # logging.basicConfig(filename=os.path.join(f'{File_path}', f'Experiment.log'), filemode='a', level=logging.INFO)
+    logger.addHandler(handler)
+    #############################
+
+    logger.info(f'=============> {args.expname} <===============')
 
     if  args.export_mesh:
         export_mesh(args)
@@ -402,6 +447,38 @@ if __name__ == '__main__':
     
     ## 0404 yue control NBV -> Image Uncertainty + Depth Uncertainty
     if args.NBV_route:
-        suggest = NextBView(args)
-        print(f"Suggest NBV # is {suggest}")
+        ## 0724 replace exp_name for next NBV iteration
+        new_exp = args.expname.split('_')
+        new_num = int(new_exp[-1])+1
+        new_exp[-1] = str(new_num)
+        with in_place.InPlace(args.config) as file:
+            for line in file:
+                line = line.replace(args.expname, '_'.join(new_exp))
+                file.write(line)
+
+        ## 07?? subprocess to add nbv
+        ###
+                
+        if DEBUG:
+            suggest, sg_IQA, sg_DO, IQA_val, DO_val = NextBView(args)
+            print(f"Suggest NBV by ALL is #{suggest}")
+            print(f"Suggest NBV by NRIQA is #{sg_IQA}, and min quality value is {IQA_val}, convert PSNR = {inv_Rescale(IQA_val)}")
+            print(f"Suggest NBV by DO is #{sg_DO}, and max DO value is {DO_val}")
+            if IQA_val >= thres:
+                print(f"NBV route reach the terminal threshold {thres}")
+
+            
+            logger.info(f"Suggest NBV by ALL is #{suggest}")
+            logger.info(f"Suggest NBV by NRIQA is #{sg_IQA}, and min quality value is {IQA_val}, convert PSNR = {inv_Rescale(IQA_val)}")
+            logger.info(f"Suggest NBV by DO is #{sg_DO}, and max DO value is {DO_val}\n")
+            # logger.info("\n")
+            # with open(os.path.join(f'{File_path}', f'Experiment_log.txt'), "a") as file:
+            #     np.savetxt(file, f'=============> {args.expname} <===============')
+            #     np.savetxt(file, f"Suggest NBV by ALL is #{suggest}")
+            #     np.savetxt(file, f"Suggest NBV by NRIQA is #{sg_IQA}, and min quality value is {IQA_val}, convert PSNR = {inv_Rescale(IQA_val)}")
+            #     np.savetxt(file, f"Suggest NBV by DO is #{sg_DO}, and max DO value is {DO_val}")
+            #     file.close()
+        else:
+            suggest = NextBView(args)
+            print(f"Suggest NBV by ALL is #{suggest}")
 

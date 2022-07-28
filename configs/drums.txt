@@ -1,13 +1,13 @@
 dataset_name = blender
 datadir = ./data/nerf_synthetic/drums
-expname =  drums_data
+expname =  drums_data_full
 basedir = ./log
 NBV_routename = Render_datas
 #NBV_suggest
 #Rabdom_views
 #Uniform_views
 
-n_iters = 10000
+n_iters = 30000
 batch_size = 4096
 
 N_voxel_init = 2097156 # 128**3

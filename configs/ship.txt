@@ -1,8 +1,8 @@
 dataset_name = blender
-datadir = ./data/nerf_synthetic/mic
-expname =  mic_data_full
+datadir = ./data/nerf_synthetic/ship
+expname =  ship_NBV_NRIQA_11
 basedir = ./log
-NBV_routename = Render_datas
+NBV_routename = NBV_suggest
 #NBV_suggest
 #Rabdom_views
 #Uniform_views

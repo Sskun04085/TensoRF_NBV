@@ -1,6 +1,6 @@
 dataset_name = blender
 datadir = ./data/nerf_synthetic/materials
-expname =  materials_data
+expname =  materials_data_full
 basedir = ./log
 NBV_routename = Render_datas
 #NBV_suggest

@@ -7,6 +7,10 @@ from opt import config_parser
 if __name__ == '__main__':
     args = config_parser()
 
+    ## if added #0 : actually we add #360
+    view_num = args.add_view
+    if view_num == 360:
+        view_num = 0
     ## read json and add NBV
     if args.add_view or args.add_shuffle_views:
         Data_dir = args.datadir
@@ -41,7 +45,7 @@ if __name__ == '__main__':
             t_shuffle = np.random.permutation(all_layer)
             target_list = t_shuffle[:args.add_shuffle_views]
         else:
-            target_list = [args.add_view]
+            target_list = [view_num]
 
         ## append then together
         for i in target_list:

@@ -1,8 +1,8 @@
 dataset_name = blender
 datadir = ./data/nerf_synthetic/chair
-expname =  chair_data
+expname =  chair_NBV_round_12
 basedir = ./log
-NBV_routename = Render_datas
+NBV_routename = NBV_suggest
 #NBV_suggest
 #Rabdom_views
 #Uniform_views
@@ -16,7 +16,7 @@ upsamp_list = [2000,3000,4000,5500,7000]
 update_AlphaMask_list = [2000,4000]
 
 N_vis = 5
-vis_every = 5000
+vis_every = 10000
 
 #render_test = 1
 #render_path = 1

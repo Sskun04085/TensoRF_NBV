@@ -1,12 +1,14 @@
 
 dataset_name = blender
 datadir = ./data/nerf_synthetic/lego
-expname =  lego_data
+expname =  lego_NBV_round_12
 basedir = ./log
-NBV_routename = Render_datas
+NBV_routename = Testing_space
 #NBV_suggest
 #Rabdom_views
 #Uniform_views
+#Render_datas
+#Testing_space
 
 n_iters = 10000
 batch_size = 4096
@@ -17,7 +19,7 @@ upsamp_list = [2000,3000,4000,5500,7000]
 update_AlphaMask_list = [2000,4000]
 
 N_vis = 5
-vis_every = 5000
+vis_every = 10000
 
 #render_test = 1
 #render_path = 1

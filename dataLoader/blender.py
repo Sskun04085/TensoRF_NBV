@@ -27,6 +27,19 @@ rot_theta = lambda th : torch.Tensor([
     [np.sin(th),0, np.cos(th),0],
     [0,0,0,1]]).float()
 
+def rad2degree(rad):
+    return rad*180./np.pi
+
+def golden_sphere(samples=360):
+    indices = np.arange(0, samples, dtype=float) + 0.5
+    radius = 4
+    phi = np.arcsin(1 - 0.85*indices/samples) ## add "-" for blender
+    theta = np.pi * (1 + 5**0.5) * indices
+
+    # x, y, z = radius*np.cos(theta) * np.cos(phi), radius*np.sin(theta) * np.cos(phi), radius*np.sin(phi);
+    # arr = np.array([x, y, z])
+    return -rad2degree(phi), (rad2degree(theta)%360)
+
 
 def pose_spherical(theta, phi, radius):
     c2w = trans_t(radius)
@@ -87,9 +100,12 @@ class BlenderDataset(Dataset):
         self.all_depth = []
         self.downsample=1.0
 
+        ## yue 0705 golden spiral phi and theta
+        golden_phi, golden_theta = golden_sphere(360)
+        self.render_path = torch.stack([pose_spherical(angle, phi, 4.0) for angle, phi in zip(golden_theta, golden_phi)], 0)
         ## yue 0404 add render path for inference camera set
-        self.render_path = torch.stack([pose_spherical(angle, phi, 4.0) for phi in np.linspace(-70, -7, 9+1)[:-1] \
-                for angle in np.linspace(-180,180,40+1)[:-1]], 0)
+        # self.render_path = torch.stack([pose_spherical(angle, phi, 4.0) for phi in np.linspace(-70, -7, 9+1)[:-1] \
+        #         for angle in np.linspace(-180,180,40+1)[:-1]], 0)
         ## 
         img_eval_interval = 1 if self.N_vis < 0 else len(self.meta['frames']) // self.N_vis
         idxs = list(range(0, len(self.meta['frames']), img_eval_interval))
