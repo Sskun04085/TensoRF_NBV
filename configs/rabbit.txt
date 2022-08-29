@@ -1,6 +1,6 @@
 dataset_name = blender
 datadir = ./data/nerf_synthetic/rabbit
-expname =  rabbit_NBV_round_12
+expname =  rabbit_NBV_Max_12
 basedir = ./log
 NBV_routename = Uniform_views
 #NBV_suggest

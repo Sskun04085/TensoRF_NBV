@@ -1,8 +1,8 @@
 dataset_name = blender
 datadir = ./data/nerf_synthetic/chair
-expname =  chair_NBV_round_12
+expname =  chair_NBV_Max_12
 basedir = ./log
-NBV_routename = NBV_suggest
+NBV_routename = Testing_space
 #NBV_suggest
 #Rabdom_views
 #Uniform_views

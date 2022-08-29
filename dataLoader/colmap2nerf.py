@@ -34,6 +34,7 @@ def parse_args():
 	parser.add_argument("--aabb_scale", default=16, choices=["1","2","4","8","16"], help="large scene scale factor. 1=scene fits in unit cube; power of 2 up to 16")
 	parser.add_argument("--skip_early", default=0, help="skip this many images from the start")
 	parser.add_argument("--out", default="transforms.json", help="output path")
+	parser.add_argument("--CPU_based_feature_extraction_and_matching", default=0)
 	args = parser.parse_args()
 	return args
 
@@ -80,8 +81,15 @@ def run_colmap(args):
 		sys.exit(1)
 	if os.path.exists(db):
 		os.remove(db)
-	do_system(f"colmap feature_extractor --ImageReader.camera_model OPENCV --SiftExtraction.estimate_affine_shape=true --SiftExtraction.domain_size_pooling=true --ImageReader.single_camera 1 --database_path {db} --image_path {images}")
-	do_system(f"colmap {args.colmap_matcher}_matcher --SiftMatching.guided_matching=true --database_path {db}")
+	# do_system(f"colmap feature_extractor --ImageReader.camera_model OPENCV --SiftExtraction.estimate_affine_shape=true --SiftExtraction.domain_size_pooling=true --ImageReader.single_camera 1 --database_path {db} --image_path {images}")
+	# do_system(f"colmap {args.colmap_matcher}_matcher --SiftMatching.guided_matching=true --database_path {db}")
+	if args.CPU_based_feature_extraction_and_matching:
+		do_system(f"colmap feature_extractor --SiftExtraction.use_gpu 0 --ImageReader.camera_model OPENCV --ImageReader.single_camera 1 --database_path {db} --image_path {images}")
+		do_system(f"colmap {args.colmap_matcher}_matcher --SiftMatching.use_gpu 0 --database_path {db}")
+	else:
+		do_system(f"colmap feature_extractor --ImageReader.camera_model OPENCV --ImageReader.single_camera 1 --database_path {db} --image_path {images}")
+		do_system(f"colmap {args.colmap_matcher}_matcher --database_path {db}")
+
 	try:
 		shutil.rmtree(sparse)
 	except:

@@ -77,8 +77,8 @@ def evaluation(test_dataset,tensorf, args, renderer, savePath=None, resPath=None
             # imageio.imwrite(f'{savePath}/rgbd/{prtx}{idx:03d}.png', depth_map)
             np.savez(f'{savePath}/rgbd/{prtx}{idx:03d}.npz', depth=depth_map)
             
-    ## 0707 yue for only uniform camera, reorder maps only for better visulization(video output)
-    if N_vis < 0:
+    ## 0707 yue for only uniform camera, reorder maps only for better visulization(video output) excluding llff
+    if N_vis < 0 and args.dataset_name != 'llff':
         f_0 = np.arange(0, 360, 8)
         for i in range(1, 8):
             f = np.arange(i, 360, 8)
@@ -161,16 +161,20 @@ def evaluation_path(test_dataset,tensorf, c2ws, renderer, savePath=None, resPath
     imageio.mimwrite(f'{savePath}/{prtx}video.mp4', np.stack(rgb_maps), fps=30, quality=8)
     imageio.mimwrite(f'{savePath}/{prtx}depthvideo.mp4', np.stack(depth_maps), fps=30, quality=8)
 
+    saveDirPath = resPath if resPath is not None else savePath
     if PSNRs:
         psnr = np.mean(np.asarray(PSNRs))
         if compute_extra_metrics:
             ssim = np.mean(np.asarray(ssims))
-            l_a = np.mean(np.asarray(l_alex))
+            # l_a = np.mean(np.asarray(l_alex))
             l_v = np.mean(np.asarray(l_vgg))
-            np.savetxt(f'{savePath}/{prtx}mean.txt', np.asarray([psnr, ssim, l_a, l_v]))
+            np.savetxt(f'{saveDirPath}/{prtx}mean.txt', np.asarray([psnr, ssim, l_v]))
         else:
-            np.savetxt(f'{savePath}/{prtx}mean.txt', np.asarray([psnr]))
-
+            np.savetxt(f'{saveDirPath}/{prtx}mean.txt', np.asarray([psnr]))
+            
+        np.savetxt(f'{saveDirPath}/test_views_PSNR.txt', np.asarray(PSNRs))
+        np.savetxt(f'{saveDirPath}/test_views_ssim.txt', np.asarray(ssims))
+        np.savetxt(f'{saveDirPath}/test_views_LPIPS_vgg.txt', np.asarray(l_vgg))
 
     return PSNRs
 

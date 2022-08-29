@@ -6,6 +6,7 @@ import torchvision.transforms as T
 import torch.nn.functional as F
 import scipy.signal
 import logging
+from scipy.spatial.distance import cdist
 
 mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]))
 
@@ -78,7 +79,9 @@ def visualize_depth(depth, minmax=None, cmap=cv2.COLORMAP_JET):
 
 def N_to_reso(n_voxels, bbox):
     xyz_min, xyz_max = bbox
-    voxel_size = ((xyz_max - xyz_min).prod() / n_voxels).pow(1 / 3)
+    # voxel_size = ((xyz_max - xyz_min).prod() / n_voxels).pow(1 / 3)
+    dim = len(xyz_min)
+    voxel_size = ((xyz_max - xyz_min).prod() / n_voxels).pow(1 / dim)
     return ((xyz_max - xyz_min) / voxel_size).long().tolist()
 
 def cal_n_samples(reso, step_ratio=0.5):

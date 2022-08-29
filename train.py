@@ -102,7 +102,7 @@ def render_test(args):
             render_poses_cpu = c2ws.cpu().numpy()
             np.save(os.path.join(f'{logfolder}/imgs_path_all', 'Camera_poses.npy'), render_poses_cpu)
         else: ## IDK dataset
-            render_poses_cpu = c2ws.cpu().numpy()
+            render_poses_cpu = c2ws
             np.save(os.path.join(f'{logfolder}/imgs_path_all', 'Camera_poses.npy'), render_poses_cpu)
 
 ## 0404 yue
@@ -142,7 +142,7 @@ def NextBView(args):
         depth_err_col = []
         for Img_nam in Imgs:
             depth = np.load(Img_nam)['depth']
-            Error = np.abs(depth - 2.0) # diff near
+            Error = np.abs(depth - 0.0) # diff near / 0.0 for llff
             N_Error = (Error < 0.05).sum() / Total_pixels  # normalize [0-1]
             depth_err_col.append(N_Error)
         depth_err_col = np.array(depth_err_col)
@@ -308,7 +308,8 @@ def reconstruction(args):
             summary_writer.add_scalar('train/reg_tv_density', loss_tv.detach().item(), global_step=iteration)
         if TV_weight_app>0:
             TV_weight_app *= lr_factor
-            loss_tv = loss_tv + tensorf.TV_loss_app(tvreg)*TV_weight_app
+            # loss_tv = loss_tv + tensorf.TV_loss_app(tvreg)*TV_weight_app
+            loss_tv = tensorf.TV_loss_app(tvreg)*TV_weight_app
             total_loss = total_loss + loss_tv
             summary_writer.add_scalar('train/reg_tv_app', loss_tv.detach().item(), global_step=iteration)
 
@@ -411,8 +412,29 @@ def reconstruction(args):
             render_poses_cpu = c2ws.cpu().numpy()
             np.save(os.path.join(f'{logfolder}/imgs_path_all', 'Camera_poses.npy'), render_poses_cpu)
         else: ## IDK dataset
-            render_poses_cpu = c2ws.cpu().numpy()
+            render_poses_cpu = c2ws
             np.save(os.path.join(f'{logfolder}/imgs_path_all', 'Camera_poses.npy'), render_poses_cpu)
+
+    ## 0804 for cd list
+    # test_c2ws = test_dataset.poses
+    # if args.dataset_name == 'blender':
+    #     solution = []
+    #     for idx, c2w in enumerate(test_c2ws):
+    #         test_c2ws[idx] = c2w @ torch.Tensor(np.array([[1,0,0,0],[0,-1,0,0],[0,0,-1,0],[0,0,0,1]]))
+    #     test_poses_cpu = test_c2ws.cpu().numpy()
+    #     myset = test_poses_cpu[:, 0:3, 3].copy()
+
+    #     cd_folder = f'{args.basedir}/{args.NBV_routename}'
+    #     now_poses = np.loadtxt(os.path.join(f'{cd_folder}', 'Now_Views.txt'))
+    #     now_poses = now_poses[2:]
+
+    #     for idx in now_poses:
+    #         solution.append(myset[int(idx)])
+    #     solution = np.asarray(solution)
+    #     # print(solution)
+    #     max_id = cdist(myset, solution, 'euclidean').sum(1).argmax()
+    #     # max_pt=myset[max_id]
+    #     return max_id
 
 
 if __name__ == '__main__':
@@ -437,12 +459,13 @@ if __name__ == '__main__':
 
     logger.info(f'=============> {args.expname} <===============')
 
-    if  args.export_mesh:
+    if args.export_mesh:
         export_mesh(args)
     if not args.only_NBV:
         if args.render_only and (args.render_test or args.render_path):
             render_test(args)
         else:
+            # cd_max_id = reconstruction(args)
             reconstruction(args)
     
     ## 0404 yue control NBV -> Image Uncertainty + Depth Uncertainty
@@ -455,9 +478,6 @@ if __name__ == '__main__':
             for line in file:
                 line = line.replace(args.expname, '_'.join(new_exp))
                 file.write(line)
-
-        ## 07?? subprocess to add nbv
-        ###
                 
         if DEBUG:
             suggest, sg_IQA, sg_DO, IQA_val, DO_val = NextBView(args)
@@ -472,12 +492,11 @@ if __name__ == '__main__':
             logger.info(f"Suggest NBV by NRIQA is #{sg_IQA}, and min quality value is {IQA_val}, convert PSNR = {inv_Rescale(IQA_val)}")
             logger.info(f"Suggest NBV by DO is #{sg_DO}, and max DO value is {DO_val}\n")
             # logger.info("\n")
-            # with open(os.path.join(f'{File_path}', f'Experiment_log.txt'), "a") as file:
-            #     np.savetxt(file, f'=============> {args.expname} <===============')
-            #     np.savetxt(file, f"Suggest NBV by ALL is #{suggest}")
-            #     np.savetxt(file, f"Suggest NBV by NRIQA is #{sg_IQA}, and min quality value is {IQA_val}, convert PSNR = {inv_Rescale(IQA_val)}")
-            #     np.savetxt(file, f"Suggest NBV by DO is #{sg_DO}, and max DO value is {DO_val}")
-            #     file.close()
+
+            Next_idx = sg_IQA
+            ## yue for auto add nbv
+            # subprocess.run(f"python add_NBV.py --config {args.config} --add_view {Next_idx}", shell=True)
+            # print(f"Auto add NBV {Next_idx} to {args.config} finished !!!")
         else:
             suggest = NextBView(args)
             print(f"Suggest NBV by ALL is #{suggest}")

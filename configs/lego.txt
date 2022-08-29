@@ -1,4 +1,3 @@
-
 dataset_name = blender
 datadir = ./data/nerf_synthetic/lego
 expname =  lego_NBV_round_12

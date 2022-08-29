@@ -1,10 +1,13 @@
-
 dataset_name = own_data
 datadir = ./data/xxx
 expname =  tensorf_xxx_VM
 basedir = ./log
+NBV_routename = Testing_space
+#NBV_suggest
+#Rabdom_views
+#Uniform_views
 
-n_iters = 30000
+n_iters = 10000
 batch_size = 4096
 
 N_voxel_init = 2097156 # 128**3
@@ -15,7 +18,8 @@ update_AlphaMask_list = [2000,4000]
 N_vis = 5
 vis_every = 10000
 
-render_test = 1
+#render_test = 1
+#render_path = 1
 
 n_lamb_sigma = [16,16,16]
 n_lamb_sh = [48,48,48]
@@ -28,8 +32,8 @@ fea2denseAct = softplus
 view_pe = 2
 fea_pe = 2
 
-view_pe = 2
-fea_pe = 2
+#view_pe = 2
+#fea_pe = 2
 
 TV_weight_density = 0.1
 TV_weight_app = 0.01

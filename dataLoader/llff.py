@@ -13,6 +13,14 @@ def normalize(v):
     """Normalize a vector."""
     return v / np.linalg.norm(v)
 
+#yue normalize axis
+def normalizeAxis(c2w):
+    center = c2w[..., 3]
+    z = normalize(c2w[..., 2])
+    y = normalize(c2w[..., 1])
+    x = normalize(c2w[..., 0])
+    pose_avg = np.stack([x, y, z, center], 1)  # (3, 4)
+    return pose_avg
 
 def average_poses(poses):
     """
@@ -51,7 +59,7 @@ def average_poses(poses):
     return pose_avg
 
 
-def center_poses(poses, blender2opencv):
+def center_poses(poses, blender2opencv, is_nbv):
     """
     Center the poses so that we can use NDC.
     See https://github.com/bmild/nerf/issues/34
@@ -62,7 +70,8 @@ def center_poses(poses, blender2opencv):
         pose_avg: (3, 4) the average pose
     """
     poses = poses @ blender2opencv
-    pose_avg = average_poses(poses)  # (3, 4)
+    # pose_avg = average_poses(poses)  # (3, 4)
+    pose_avg = normalizeAxis(poses[0]) if is_nbv else average_poses(poses)
     pose_avg_homo = np.eye(4)
     pose_avg_homo[:3] = pose_avg  # convert to homogeneous coordinate for faster computation
     pose_avg_homo = pose_avg_homo
@@ -84,7 +93,9 @@ def viewmatrix(z, up, pos):
     vec0 = normalize(np.cross(vec1_avg, vec2))
     vec1 = normalize(np.cross(vec2, vec0))
     m = np.eye(4)
-    m[:3] = np.stack([-vec0, vec1, vec2, pos], 1)
+    ## yue 0825 / remove negative sign fot vec0 
+    m[:3] = np.stack([vec0, vec1, vec2, pos], 1)
+    
     return m
 
 
@@ -93,13 +104,15 @@ def render_path_spiral(c2w, up, rads, focal, zdelta, zrate, N_rots=2, N=120):
     rads = np.array(list(rads) + [1.])
 
     for theta in np.linspace(0., 2. * np.pi * N_rots, N + 1)[:-1]:
-        c = np.dot(c2w[:3, :4], np.array([np.cos(theta), -np.sin(theta), -np.sin(theta * zrate), 1.]) * rads)
+        ## yue 0824 / z perturbance will remove later
+        # c = np.dot(c2w[:3, :4], np.array([np.cos(theta), -np.sin(theta), -np.sin(theta * zrate), 1.]) * rads)
+        c = np.dot(c2w[:3, :4], np.array([np.cos(theta), -np.sin(theta), 0, 1.]) * rads)
         z = normalize(c - np.dot(c2w[:3, :4], np.array([0, 0, -focal, 1.])))
         render_poses.append(viewmatrix(z, up, c))
     return render_poses
 
 
-def get_spiral(c2ws_all, near_fars, rads_scale=1.0, N_views=120):
+def get_spiral(c2ws_all, near_fars, rads_scale=1.0, N_views=120, N_rots=2):
     # center pose
     c2w = average_poses(c2ws_all)
 
@@ -107,7 +120,7 @@ def get_spiral(c2ws_all, near_fars, rads_scale=1.0, N_views=120):
     up = normalize(c2ws_all[:, :3, 1].sum(0))
 
     # Find a reasonable "focus depth" for this dataset
-    dt = 0.75
+    dt = 0.6 # orginal 0.75
     close_depth, inf_depth = near_fars.min() * 0.9, near_fars.max() * 5.0
     focal = 1.0 / (((1.0 - dt) / close_depth + dt / inf_depth))
 
@@ -115,9 +128,28 @@ def get_spiral(c2ws_all, near_fars, rads_scale=1.0, N_views=120):
     zdelta = near_fars.min() * .2
     tt = c2ws_all[:, :3, 3]
     rads = np.percentile(np.abs(tt), 90, 0) * rads_scale
-    render_poses = render_path_spiral(c2w, up, rads, focal, zdelta, zrate=.5, N=N_views)
+    render_poses = render_path_spiral(c2w, up, rads, focal, zdelta, zrate=.5, N_rots=N_rots, N=N_views)
     return np.stack(render_poses)
 
+def get_nbv_spiral(c2ws_all, near_fars, rads_scale=1.0, N_views=120, N_rots=2):
+    # first image as center pose
+    c2w = c2ws_all[0] #(3, 4)
+
+    # Get average pose
+    up = c2ws_all[0, :3, 1]
+    # up = normalize(c2ws_all[:, :3, 1].sum(0))
+
+    # Find a reasonable "focus depth" for this dataset
+    dt = 0.6 # orginal 0.75
+    close_depth, inf_depth = near_fars.min() * 0.9, near_fars.max() * 5.0
+    focal = 1.0 / (((1.0 - dt) / close_depth + dt / inf_depth))
+
+    # Get radii for spiral path
+    zdelta = near_fars.min() * .2
+    tt = c2ws_all[:, :3, 3]
+    rads = np.percentile(np.abs(tt), 90, 0) * rads_scale
+    render_poses = render_path_spiral(c2w, up, rads, focal, zdelta, zrate=.5, N_rots=N_rots, N=N_views)
+    return np.stack(render_poses)
 
 class LLFFDataset(Dataset):
     def __init__(self, datadir, split='train', downsample=4, is_stack=False, hold_every=8):
@@ -126,7 +158,9 @@ class LLFFDataset(Dataset):
                        default: False (forward-facing)
         val_num: number of val images (used for multigpu training, validate same image for all gpus)
         """
-
+        ## yue 0825 / build for nbv cpture filed
+        self.is_nbv = True
+        ###
         self.root_dir = datadir
         self.split = split
         self.hold_every = hold_every
@@ -169,7 +203,9 @@ class LLFFDataset(Dataset):
         # See https://github.com/bmild/nerf/issues/34
         poses = np.concatenate([poses[..., 1:2], -poses[..., :1], poses[..., 2:4]], -1)
         # (N_images, 3, 4) exclude H, W, focal
-        self.poses, self.pose_avg = center_poses(poses, self.blender2opencv)
+
+        ## 0824 yue / need to fix centered poses after initialization!!! (fix as first image)
+        self.poses, self.pose_avg = center_poses(poses, self.blender2opencv, self.is_nbv)
 
         # Step 3: correct scale so that the nearest depth is at a little more than 1.0
         # See https://github.com/bmild/nerf/issues/34
@@ -180,12 +216,13 @@ class LLFFDataset(Dataset):
         self.poses[..., 3] /= scale_factor
 
         # build rendering path
-        N_views, N_rots = 120, 2
+        N_views, N_rots = 60, 1
         tt = self.poses[:, :3, 3]  # ptstocam(poses[:3,3,:].T, c2w).T
         up = normalize(self.poses[:, :3, 1].sum(0))
         rads = np.percentile(np.abs(tt), 90, 0)
 
-        self.render_path = get_spiral(self.poses, self.near_fars, N_views=N_views)
+        # self.render_path = get_spiral(self.poses, self.near_fars, N_views=N_views)
+        self.render_path = get_nbv_spiral(self.poses, self.near_fars, N_views=N_views, N_rots=N_rots)
 
         # distances_from_center = np.linalg.norm(self.poses[..., 3], axis=1)
         # val_idx = np.argmin(distances_from_center)  # choose val image as the closest to
