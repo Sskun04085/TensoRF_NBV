@@ -2,7 +2,7 @@ dataset_name = blender
 datadir = ./data/nerf_synthetic/lego
 expname =  lego_NBV_round_12
 basedir = ./log
-NBV_routename = Testing_space
+NBV_routename = Uniform_views
 #NBV_suggest
 #Rabdom_views
 #Uniform_views

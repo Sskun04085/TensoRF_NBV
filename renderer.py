@@ -49,7 +49,7 @@ def evaluation(test_dataset,tensorf, args, renderer, savePath=None, resPath=None
 
         rgb_map, depth_map = rgb_map.reshape(H, W, 3).cpu(), depth_map.reshape(H, W).cpu()
 
-        ## 0404 yue
+        ## no need to vis depth map
         # depth_map, _ = visualize_depth_numpy(depth_map.numpy(),near_far)
         if len(test_dataset.all_rgbs):
             gt_rgb = test_dataset.all_rgbs[idxs[idx]].view(H, W, 3)
@@ -65,7 +65,6 @@ def evaluation(test_dataset,tensorf, args, renderer, savePath=None, resPath=None
                 l_vgg.append(l_v)
 
         rgb_map = (rgb_map.numpy() * 255).astype('uint8')
-        ## 0404 yue
         depth_map = depth_map.numpy()
         ##
         # rgb_map = np.concatenate((rgb_map, depth_map), axis=1)
@@ -77,7 +76,7 @@ def evaluation(test_dataset,tensorf, args, renderer, savePath=None, resPath=None
             # imageio.imwrite(f'{savePath}/rgbd/{prtx}{idx:03d}.png', depth_map)
             np.savez(f'{savePath}/rgbd/{prtx}{idx:03d}.npz', depth=depth_map)
             
-    ## 0707 yue for only uniform camera, reorder maps only for better visulization(video output) excluding llff
+    ##  for only uniform camera, reorder maps only for better visulization(video output) excluding llff
     if N_vis < 0 and args.dataset_name != 'llff':
         f_0 = np.arange(0, 360, 8)
         for i in range(1, 8):
@@ -146,9 +145,7 @@ def evaluation_path(test_dataset,tensorf, c2ws, renderer, savePath=None, resPath
         # depth_map, _ = visualize_depth_numpy(depth_map.numpy(),near_far)
 
         rgb_map = (rgb_map.numpy() * 255).astype('uint8')
-        ## 0404 yue
         depth_map = depth_map.numpy()
-        ##
         # rgb_map = np.concatenate((rgb_map, depth_map), axis=1)
         rgb_maps.append(rgb_map)
         depth_maps.append(depth_map)
@@ -158,8 +155,8 @@ def evaluation_path(test_dataset,tensorf, c2ws, renderer, savePath=None, resPath
             # imageio.imwrite(f'{savePath}/rgbd/{prtx}{idx:03d}.png', depth_map)
             np.savez(f'{savePath}/rgbd/{prtx}{idx:03d}.npz', depth=depth_map)
 
-    imageio.mimwrite(f'{savePath}/{prtx}video.mp4', np.stack(rgb_maps), fps=30, quality=8)
-    imageio.mimwrite(f'{savePath}/{prtx}depthvideo.mp4', np.stack(depth_maps), fps=30, quality=8)
+    imageio.mimwrite(f'{savePath}/{prtx}video.mp4', np.stack(rgb_maps), fps=24, quality=8)
+    imageio.mimwrite(f'{savePath}/{prtx}depthvideo.mp4', np.stack(depth_maps), fps=24, quality=8)
 
     saveDirPath = resPath if resPath is not None else savePath
     if PSNRs:

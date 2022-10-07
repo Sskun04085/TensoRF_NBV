@@ -79,7 +79,6 @@ def render_test(args):
         train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=True)
         PSNRs_test = evaluation(train_dataset,tensorf, args, renderer, f'{logfolder}/imgs_train_all/',
                     N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray, only_PSNR=args.only_PSNR ,device=device)
-        ## yue 0404 add camera pose
         print(f'======> {args.expname} train all psnr: {np.mean(PSNRs_test)} <========================')
 
     if args.render_test:
@@ -87,7 +86,7 @@ def render_test(args):
         os.makedirs(f'{logfolder}/imgs_test_all', exist_ok=True)
         evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/imgs_test_all/', resPath=f'{logfolder}/{args.expname}_res/',
                 N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray, only_PSNR=args.only_PSNR, device=device)
-        ## yue 0404 add camera pose
+
 
     if args.render_path:
         print("render_path=================================")
@@ -95,7 +94,7 @@ def render_test(args):
         os.makedirs(f'{logfolder}/imgs_path_all', exist_ok=True)
         evaluation_path(test_dataset,tensorf, c2ws, renderer, f'{logfolder}/imgs_path_all/', resPath=f'{logfolder}/{args.expname}_res/',
                                 N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
-        ## yue 0404 add camera pose
+        ## add camera pose
         if args.dataset_name == 'blender':
             for idx, c2w in enumerate(c2ws):
                 c2ws[idx] = c2w @ torch.Tensor(np.array([[1,0,0,0],[0,-1,0,0],[0,0,-1,0],[0,0,0,1]]))
@@ -112,13 +111,13 @@ def NextBView(args):
         logfolder = f'{args.basedir}/{args.expname}{datetime.datetime.now().strftime("-%Y%m%d-%H%M%S")}'
     else:
         logfolder = f'{args.basedir}/{args.NBV_routename}/{args.expname}'
-    ## yue 0414 now test for 360 view 
+
     if args.render_test:
         File_path = f'{logfolder}/imgs_test_all'
     else:
         File_path = f'{logfolder}/imgs_path_all'
 
-    # 0714 direct make results in this folder to lesson some labor work
+    # direct make results in this folder to lesson some labor work
     os.makedirs(f'{logfolder}/{args.expname}_res', exist_ok=True)
     Exp_path = f'{logfolder}/{args.expname}_res'
     ### NRIQA part
@@ -163,7 +162,7 @@ def NextBView(args):
     DO = np.loadtxt(os.path.join(Exp_path, 'Depth_Errors.txt'))
     alpha = 1/90
     beta = 89/90
-    ## 0713 load now list to mask out overestimate or selected
+    ##load now list to mask out overestimate or selected
     total_idx = np.arange(len(NRIQA))
     route_path = os.path.abspath(os.path.join(logfolder, os.pardir))
     now_list = np.loadtxt(os.path.join(route_path, 'Now_Views.txt'))
@@ -192,8 +191,14 @@ def reconstruction(args):
 
     # init dataset
     dataset = dataset_dict[args.dataset_name]
-    train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False)
-    test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True)
+    print(dataset)
+    if args.dataset_name == 'llff':
+        print(f"debug {args.llff_hold}")
+        train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False, hold_every=args.llff_hold)
+        test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True, hold_every=args.llff_hold)
+    else:
+        train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=False)
+        test_dataset = dataset(args.datadir, split='test', downsample=args.downsample_train, is_stack=True)
     white_bg = train_dataset.white_bg
     near_far = train_dataset.near_far
     ndc_ray = args.ndc_ray
@@ -386,7 +391,6 @@ def reconstruction(args):
         train_dataset = dataset(args.datadir, split='train', downsample=args.downsample_train, is_stack=True)
         PSNRs_test = evaluation(train_dataset,tensorf, args, renderer, f'{logfolder}/imgs_train_all/',
                     N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray, only_PSNR=args.only_PSNR, device=device)
-        ## yue 0404 add camera pose
         print(f'======> {args.expname} test all psnr: {np.mean(PSNRs_test)} <========================')
 
     if args.render_test:
@@ -394,7 +398,6 @@ def reconstruction(args):
         PSNRs_test = evaluation(test_dataset,tensorf, args, renderer, f'{logfolder}/imgs_test_all/', resPath=f'{logfolder}/{args.expname}_res/',
                     N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray, only_PSNR=args.only_PSNR, device=device)
         summary_writer.add_scalar('test/psnr_all', np.mean(PSNRs_test), global_step=iteration)
-        ## yue 0404 add camera pose
         print(f'======> {args.expname} test all psnr: {np.mean(PSNRs_test)} <========================')
         logger.info(f'======> {args.expname} test all psnr: {np.mean(PSNRs_test)} <========================')
 
@@ -405,7 +408,7 @@ def reconstruction(args):
         os.makedirs(f'{logfolder}/imgs_path_all', exist_ok=True)
         evaluation_path(test_dataset,tensorf, c2ws, renderer, f'{logfolder}/imgs_path_all/', resPath=f'{logfolder}/{args.expname}_res/',
                                 N_vis=-1, N_samples=-1, white_bg = white_bg, ndc_ray=ndc_ray,device=device)
-        ## yue 0404 add camera pose
+        ## add camera pose
         if args.dataset_name == 'blender':
             for idx, c2w in enumerate(c2ws):
                 c2ws[idx] = c2w @ torch.Tensor(np.array([[1,0,0,0],[0,-1,0,0],[0,0,-1,0],[0,0,0,1]]))
@@ -415,7 +418,7 @@ def reconstruction(args):
             render_poses_cpu = c2ws
             np.save(os.path.join(f'{logfolder}/imgs_path_all', 'Camera_poses.npy'), render_poses_cpu)
 
-    ## 0804 for cd list
+    ## for cd list
     # test_c2ws = test_dataset.poses
     # if args.dataset_name == 'blender':
     #     solution = []
@@ -446,6 +449,7 @@ if __name__ == '__main__':
     args = config_parser()
     # print(args)
     File_path = f'{args.basedir}/{args.NBV_routename}'
+    os.makedirs(File_path, exist_ok=True)
 
     ## logging setting
     logger = logging.getLogger('NBV_logger')
@@ -468,9 +472,9 @@ if __name__ == '__main__':
             # cd_max_id = reconstruction(args)
             reconstruction(args)
     
-    ## 0404 yue control NBV -> Image Uncertainty + Depth Uncertainty
+    ## control NBV -> Image Uncertainty + Depth Uncertainty
     if args.NBV_route:
-        ## 0724 replace exp_name for next NBV iteration
+        ## replace exp_name for next NBV iteration
         new_exp = args.expname.split('_')
         new_num = int(new_exp[-1])+1
         new_exp[-1] = str(new_num)
@@ -494,7 +498,7 @@ if __name__ == '__main__':
             # logger.info("\n")
 
             Next_idx = sg_IQA
-            ## yue for auto add nbv
+            ##for auto add nbv
             # subprocess.run(f"python add_NBV.py --config {args.config} --add_view {Next_idx}", shell=True)
             # print(f"Auto add NBV {Next_idx} to {args.config} finished !!!")
         else:

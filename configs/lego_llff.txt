@@ -1,14 +1,14 @@
 dataset_name = llff
-datadir = ./data/nerf_llff_data/goku_llff_center_0
-expname =  goku_llff_full_1
+datadir = ./data/nerf_llff_data/lego_llff_nbv_13
+expname =  lego_llff_nbv_13
 basedir = ./log
-NBV_routename = Testing_space
+NBV_routename = Simulate_space
 #NBV_suggest
 #Rabdom_views
 #Uniform_views
 #Testing_space
 
-downsample_train = 4.0
+downsample_train = 1.0
 ndc_ray = 1
 
 n_iters = 10000

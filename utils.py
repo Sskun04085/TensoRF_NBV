@@ -10,7 +10,7 @@ from scipy.spatial.distance import cdist
 
 mse2psnr = lambda x : -10. * torch.log(x) / torch.log(torch.Tensor([10.]))
 
-#yue 0726 logging filter only INFO
+# logging filter only INFO
 class MyFilter(object):
     def __init__(self, level):
         self.__level = level
@@ -18,7 +18,7 @@ class MyFilter(object):
     def filter(self, logRecord):
         return logRecord.levelno <= self.__level
 
-#yue 0705 inv rescale
+# inv rescale
 def inv_Rescale(in_array, omin=1, omax=10, nmin=5, nmax=45):
     old_range = omax-omin
     new_range = nmax-nmin
@@ -29,7 +29,7 @@ def sorted_alphanumeric(data):
     alphanum_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ] 
     return sorted(data, key=alphanum_key)
 
-#yue 0404 show time h m s
+# show time h m s
 def GetdeltaTime(dt):
     hours, remainder = divmod(dt, 3600)
     minutes, seconds = divmod(remainder, 60)

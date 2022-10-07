@@ -13,7 +13,7 @@ def normalize(v):
     """Normalize a vector."""
     return v / np.linalg.norm(v)
 
-#yue normalize axis
+# normalize axis
 def normalizeAxis(c2w):
     center = c2w[..., 3]
     z = normalize(c2w[..., 2])
@@ -93,7 +93,7 @@ def viewmatrix(z, up, pos):
     vec0 = normalize(np.cross(vec1_avg, vec2))
     vec1 = normalize(np.cross(vec2, vec0))
     m = np.eye(4)
-    ## yue 0825 / remove negative sign fot vec0 
+    ##  remove negative sign for vec0 
     m[:3] = np.stack([vec0, vec1, vec2, pos], 1)
     
     return m
@@ -104,7 +104,7 @@ def render_path_spiral(c2w, up, rads, focal, zdelta, zrate, N_rots=2, N=120):
     rads = np.array(list(rads) + [1.])
 
     for theta in np.linspace(0., 2. * np.pi * N_rots, N + 1)[:-1]:
-        ## yue 0824 / z perturbance will remove later
+        ## z perturbance will remove later
         # c = np.dot(c2w[:3, :4], np.array([np.cos(theta), -np.sin(theta), -np.sin(theta * zrate), 1.]) * rads)
         c = np.dot(c2w[:3, :4], np.array([np.cos(theta), -np.sin(theta), 0, 1.]) * rads)
         z = normalize(c - np.dot(c2w[:3, :4], np.array([0, 0, -focal, 1.])))
@@ -140,7 +140,7 @@ def get_nbv_spiral(c2ws_all, near_fars, rads_scale=1.0, N_views=120, N_rots=2):
     # up = normalize(c2ws_all[:, :3, 1].sum(0))
 
     # Find a reasonable "focus depth" for this dataset
-    dt = 0.6 # orginal 0.75
+    dt = 0.6 # orginal 0.75 / 0.6 in goku /
     close_depth, inf_depth = near_fars.min() * 0.9, near_fars.max() * 5.0
     focal = 1.0 / (((1.0 - dt) / close_depth + dt / inf_depth))
 
@@ -158,7 +158,7 @@ class LLFFDataset(Dataset):
                        default: False (forward-facing)
         val_num: number of val images (used for multigpu training, validate same image for all gpus)
         """
-        ## yue 0825 / build for nbv cpture filed
+        ##  build for nbv cpture filed
         self.is_nbv = True
         ###
         self.root_dir = datadir
@@ -183,7 +183,7 @@ class LLFFDataset(Dataset):
 
 
         poses_bounds = np.load(os.path.join(self.root_dir, 'poses_bounds.npy'))  # (N_images, 17)
-        self.image_paths = sorted(glob.glob(os.path.join(self.root_dir, 'images_4/*')))
+        self.image_paths = sorted(glob.glob(os.path.join(self.root_dir, f'images_{int(self.downsample)}/*')))
         # load full resolution image then resize
         if self.split in ['train', 'test']:
             assert len(poses_bounds) == len(self.image_paths), \
@@ -204,7 +204,7 @@ class LLFFDataset(Dataset):
         poses = np.concatenate([poses[..., 1:2], -poses[..., :1], poses[..., 2:4]], -1)
         # (N_images, 3, 4) exclude H, W, focal
 
-        ## 0824 yue / need to fix centered poses after initialization!!! (fix as first image)
+        ##  need to fix centered poses after initialization!!! (fix as first image)
         self.poses, self.pose_avg = center_poses(poses, self.blender2opencv, self.is_nbv)
 
         # Step 3: correct scale so that the nearest depth is at a little more than 1.0
@@ -235,7 +235,11 @@ class LLFFDataset(Dataset):
         average_pose = average_poses(self.poses)
         dists = np.sum(np.square(average_pose[:3, 3] - self.poses[:, :3, 3]), -1)
         i_test = np.arange(0, self.poses.shape[0], self.hold_every)  # [np.argmin(dists)]
+        ## inspect here for using all training data and specify testing data
         img_list = i_test if self.split != 'train' else list(set(np.arange(len(self.poses))) - set(i_test))
+        # img_list = i_test
+        print(f"Total training images : {len(img_list)} and {img_list}.")
+        print(f"Total testing images: {len(i_test)} and {i_test}.")
 
         # use first N_images-1 to train, the LAST is val
         self.all_rays = []

@@ -100,10 +100,14 @@ class BlenderDataset(Dataset):
         self.all_depth = []
         self.downsample=1.0
 
-        ## yue 0705 golden spiral phi and theta
-        golden_phi, golden_theta = golden_sphere(360)
-        self.render_path = torch.stack([pose_spherical(angle, phi, 4.0) for angle, phi in zip(golden_theta, golden_phi)], 0)
-        ## yue 0404 add render path for inference camera set
+        ## render path for visualization
+        self.render_path = torch.stack([pose_spherical(angle, phi, 4.0) for phi in (-40, -15) \
+                for angle in np.linspace(-180,180,40+1)[:-1]], 0)
+        ## golden spiral phi and theta
+        # golden_phi, golden_theta = golden_sphere(360)
+        # self.render_path = torch.stack([pose_spherical(angle, phi, 4.0) for angle, phi in zip(golden_theta, golden_phi)], 0)
+
+        ## add render path for inference camera set
         # self.render_path = torch.stack([pose_spherical(angle, phi, 4.0) for phi in np.linspace(-70, -7, 9+1)[:-1] \
         #         for angle in np.linspace(-180,180,40+1)[:-1]], 0)
         ## 

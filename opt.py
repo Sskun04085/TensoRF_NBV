@@ -22,7 +22,7 @@ def config_parser(cmd=None):
     parser.add_argument('--model_name', type=str, default='TensorVMSplit',
                         choices=['TensorVMSplit', 'TensorCP'])
 
-    ## 0404 yue NBV route
+    ## NBV route
     parser.add_argument("--NBV_route", type=int, default=0)
     parser.add_argument("--only_NBV", type=int, default=0)
     parser.add_argument('--add_shuffle_views', type=int, default=0,
@@ -41,6 +41,7 @@ def config_parser(cmd=None):
 
     parser.add_argument('--dataset_name', type=str, default='blender',
                         choices=['blender', 'llff', 'nsvf', 'dtu','tankstemple', 'own_data'])
+    parser.add_argument('--llff_hold',type=int,default=8)
 
 
     # training options

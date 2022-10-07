@@ -1,6 +1,6 @@
 dataset_name = llff
-datadir = ./data/nerf_llff_data/goku_llff_center_0
-expname =  goku_llff_full_1
+datadir = ./data/nerf_llff_data/monster_llff_full_0
+expname =  monster_full_render_0
 basedir = ./log
 NBV_routename = Testing_space
 #NBV_suggest
